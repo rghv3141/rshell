@@ -5,7 +5,7 @@
 #include <sys/wait.h>
 
 char **rshell_split_line(char *);
-int rshell_lauch(char **);
+int rshell_launch(char **);
 int rshell_execute(char **);
 char *rshell_read_line();
 
