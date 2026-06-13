@@ -8,7 +8,8 @@ char **rshell_split_line(char *);
 int rshell_launch(char **);
 int rshell_execute(char **);
 char *rshell_read_line();
-
+int rshell_pipe(char **);
+int rshell_background(char **);
 void rshell_loop(void) 
 {
 	
@@ -126,7 +127,7 @@ int rshell_pipe(char **args)
 		}
 	}
 	
-	if(pipe_pos == -1) return rshell_launch(args); 
+	if(pipe_pos == -1) return rshell_background(args); 
 	
 	args[pipe_pos] = NULL;
 
@@ -187,6 +188,40 @@ int rshell_pipe(char **args)
 	return 1;
 } 
 
+int rshell_background(char **args) {
+	int i;
+	int background = -1;
+	for(i = 0; args[i] != NULL; i++) {
+		if (strcmp(args[i], "&") == 0) {
+			background = 1;
+			break;
+		}
+	
+	}	
+	if (background == -1) {
+		return rshell_launch(args);
+	}
+
+	args[i] = NULL;
+	pid_t pid = fork();
+	if(pid == 0) {
+		if(execvp(args[0], args) == -1) {
+			perror("rshell");
+		}
+		exit(EXIT_FAILURE);
+	}
+	else if (pid < 0) {
+		perror("forking");
+	}
+	
+	return 1;
+}
+
+void sigchld_handler(int sig) {
+		while(waitpid(-1, NULL, WNOHANG) > 0)
+		;
+	}
+
 int rshell_execute(char** args) 
 {
 	
@@ -201,6 +236,8 @@ int rshell_execute(char** args)
 }
 
 int main(int argc, char **argv) {
+
+	signal(SIGCHLD, sigchld_handler);
 
 	rshell_loop();
 
