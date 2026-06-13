@@ -116,6 +116,76 @@ int rshell_launch(char **args)
 	return 1;
 }
 
+int rshell_pipe(char **args) 
+{
+	int pipe_pos = -1;
+	for(int i = 0; args[i] != NULL; i++) {
+		if (strcmp(args[i], "|") == 0) {
+			pipe_pos = i;
+			break;
+		}
+	}
+	
+	if(pipe_pos == -1) return rshell_launch(args); 
+	
+	args[pipe_pos] = NULL;
+
+	char **left_cmd = args;
+	char **right_cmd = &args[pipe_pos + 1];
+
+	int fd[2];
+
+	if (pipe(fd) == -1) {
+		perror("pipe");
+		return 1;
+	}
+	
+	pid_t pid1 = fork();
+
+	if (pid1 < 0) {
+		perror("forking");
+		return 1;
+	} 
+	if (pid1 == 0) {
+		dup2(fd[1], STDOUT_FILENO);
+	
+		close(fd[0]);
+		close(fd[1]);
+		
+		if(execvp(left_cmd[0], left_cmd) == -1) {
+			perror("rshell");
+		}
+		exit(EXIT_FAILURE);
+	
+	}
+
+	pid_t pid2 = fork();
+
+	if (pid2 < 0) {
+		perror("fork");
+		return 1;
+	}
+
+	if (pid2 == 0) {
+		dup2(fd[0], STDIN_FILENO);
+		
+		close(fd[0]);
+		close(fd[1]);
+
+		if(execvp(right_cmd[0], right_cmd) == -1) {
+                        perror("rshell");
+		 }
+                exit(EXIT_FAILURE);
+	}
+
+	close(fd[0]);
+	close(fd[1]);
+
+	waitpid(pid1, NULL, 0);
+	waitpid(pid2, NULL, 0);
+	
+	return 1;
+} 
 
 int rshell_execute(char** args) 
 {
@@ -127,7 +197,7 @@ int rshell_execute(char** args)
 		exit(EXIT_SUCCESS);
 	}
 	
-	return rshell_launch(args);
+	return rshell_pipe(args);
 }
 
 int main(int argc, char **argv) {
