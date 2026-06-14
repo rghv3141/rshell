@@ -3,13 +3,16 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+
 
 char **rshell_split_line(char *);
 int rshell_launch(char **);
 int rshell_execute(char **);
 char *rshell_read_line();
-int rshell_pipe(char **);
-int rshell_background(char **);
+int rshell_pipe(char **, int);
+int o_redirection(char **, int);
+int rshell_background(char **, int);
 void rshell_loop(void) 
 {
 	
@@ -96,6 +99,45 @@ char **rshell_split_line(char *line)
 
 int rshell_launch(char **args) 
 {
+
+	//check for pipe
+	int pipe_pos = -1;
+        for(int i = 0; args[i] != NULL; i++) {
+                if (strcmp(args[i], "|") == 0) {
+                        pipe_pos = i;
+                        break;
+                }
+        }
+	if (-1 != pipe_pos) 
+		return rshell_pipe(args, pipe_pos);
+	
+
+	// check for "&"
+	int i;
+        int background = 0;
+        for(i = 0; args[i] != NULL; i++) {
+                if (strcmp(args[i], "&") == 0) {
+                        background = 1;
+                        break;
+                }
+
+        }
+        if (0 != background)
+                return rshell_background(args, i);
+
+	//check for ">"
+
+	int outpos = -1;
+	for(int i = 0; args[i] != NULL; i++) {
+		if(strcmp(args[i], ">") == 0) {
+			outpos = i;
+			break;
+		}
+	}
+	if (-1 != outpos) 
+		return o_redirection(args, outpos);
+	
+	
 	pid_t pid, wpid;
 	int status;
 	pid = fork();
@@ -117,18 +159,8 @@ int rshell_launch(char **args)
 	return 1;
 }
 
-int rshell_pipe(char **args) 
-{
-	int pipe_pos = -1;
-	for(int i = 0; args[i] != NULL; i++) {
-		if (strcmp(args[i], "|") == 0) {
-			pipe_pos = i;
-			break;
-		}
-	}
-	
-	if(pipe_pos == -1) return rshell_background(args); 
-	
+int rshell_pipe(char **args, int pipe_pos) 
+{	
 	args[pipe_pos] = NULL;
 
 	char **left_cmd = args;
@@ -188,20 +220,8 @@ int rshell_pipe(char **args)
 	return 1;
 } 
 
-int rshell_background(char **args) {
-	int i;
-	int background = -1;
-	for(i = 0; args[i] != NULL; i++) {
-		if (strcmp(args[i], "&") == 0) {
-			background = 1;
-			break;
-		}
+int rshell_background(char **args, int i) {
 	
-	}	
-	if (background == -1) {
-		return rshell_launch(args);
-	}
-
 	args[i] = NULL;
 	pid_t pid = fork();
 	if(pid == 0) {
@@ -214,6 +234,35 @@ int rshell_background(char **args) {
 		perror("forking");
 	}
 	
+	return 1;
+}
+
+int o_redirection(char **args, int outpos) 
+{
+	
+	args[outpos] = NULL;
+	char **leftcmd = args;
+	char **rightcmd = &args[outpos+1];
+	
+	pid_t pid;
+	pid = fork();
+	if (pid == 0) {
+		int fd = open(rightcmd[0], O_WRONLY | O_CREAT | O_TRUNC, 0644 );
+
+		dup2(fd, STDOUT_FILENO);
+		close(fd);
+		
+		if(-1 == execvp(leftcmd[0], leftcmd)){
+			perror("rshell");
+		}
+		exit(EXIT_FAILURE);
+	}
+	else if(pid < 0) 
+		perror("fork");
+
+	else {
+		waitpid(pid, NULL, 0);
+	}
 	return 1;
 }
 
@@ -232,7 +281,7 @@ int rshell_execute(char** args)
 		exit(EXIT_SUCCESS);
 	}
 	
-	return rshell_pipe(args);
+	return rshell_launch(args);
 }
 
 int main(int argc, char **argv) {
