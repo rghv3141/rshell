@@ -10,7 +10,7 @@ A simple Unix shell written in C.
 - Input redirection (`<`)
 - Background execution (`&`)
 - SIGCHLD handling to reap background processes
-
+- Built-in `exit` command  
 ## Compilation
 
 ```bash
