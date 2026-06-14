@@ -166,6 +166,11 @@ int rshell_launch(char **args)
 	else {
 		do {
 			wpid = waitpid(pid, &status, WUNTRACED);
+
+			if (-1 == wpid) {
+				perror("waitpid");
+				break;
+			}
 		} while (!WIFEXITED(status) && !WIFSIGNALED(status));
 	}
 	return 1;
@@ -305,9 +310,10 @@ int in_redirection(char **args, int inpos) {
 }
 
 void sigchld_handler(int sig) {
-		while(waitpid(-1, NULL, WNOHANG) > 0)
+	(void)sig;		
+	while(waitpid(-1, NULL, WNOHANG) > 0)
 		;
-	}
+}
 
 int rshell_execute(char** args) 
 {
@@ -322,7 +328,7 @@ int rshell_execute(char** args)
 	return rshell_launch(args);
 }
 
-int main(int argc, char **argv) {
+int main() {
 
 	signal(SIGCHLD, sigchld_handler);
 
