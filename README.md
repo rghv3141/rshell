@@ -15,6 +15,7 @@ A simple Unix shell written in C.
 
 ```bash
 gcc -Wall -Wextra rshell.c -o rshell
+```
 
 ## Examples
 
