@@ -6,7 +6,7 @@
 #include <fcntl.h>
 
 
-char **rshell_split_line(char *);
+char **rshell_split_line(char *, int *);
 int rshell_launch(char **);
 int rshell_execute(char **);
 char *rshell_read_line();
@@ -22,11 +22,14 @@ void rshell_loop(void)
 	int status;
 
 	do {
+		int token_count = 0;
 		printf("rshell> ");
 		line = rshell_read_line();
-		args = rshell_split_line(line);
+		args = rshell_split_line(line, &token_count);
 		status = rshell_execute(args);	
-
+		for (int i = 0; i < token_count; i++) {
+			free(args[i]);
+		}
 		free(line);
 		free(args);
 	} while (status);
@@ -63,7 +66,7 @@ char *rshell_read_line()
 	}
 }
 
-char **rshell_split_line(char *line) 
+char **rshell_split_line(char *line, int *token_count) 
 {
 	int bufsize = 64;
 	int posl = 0; // pos of line
@@ -87,7 +90,7 @@ char **rshell_split_line(char *line)
 		
 		token[post] = '\0';
 		tokens[i++] = strdup(token);
-
+		(*token_count)++;
 		if (i>bufsize) {
 		bufsize += bufsize;
 		tokens = realloc(tokens, bufsize * sizeof(char *));
@@ -178,6 +181,7 @@ int rshell_launch(char **args)
 
 int rshell_pipe(char **args, int pipe_pos) 
 {	
+	free(args[pipe_pos]);
 	args[pipe_pos] = NULL;
 
 	char **left_cmd = args;
@@ -238,7 +242,7 @@ int rshell_pipe(char **args, int pipe_pos)
 } 
 
 int rshell_background(char **args, int i) {
-	
+	free(args[i]);
 	args[i] = NULL;
 	pid_t pid = fork();
 	if(pid == 0) {
@@ -256,7 +260,7 @@ int rshell_background(char **args, int i) {
 
 int o_redirection(char **args, int outpos) 
 {
-	
+	free(args[outpos]);	
 	args[outpos] = NULL;
 	char **leftcmd = args;
 	char **rightcmd = &args[outpos+1];
@@ -284,6 +288,7 @@ int o_redirection(char **args, int outpos)
 }
 
 int in_redirection(char **args, int inpos) {
+	free(args[inpos]);
 	args[inpos] = NULL;
 	char **leftcmd = args;
 	char **rightcmd = &args[inpos+1];
@@ -322,7 +327,7 @@ int rshell_execute(char** args)
 		return 1;
 	}
 	if(strcmp(args[0], "exit" ) == 0){
-		exit(EXIT_SUCCESS);
+		return 0;
 	}
 	
 	return rshell_launch(args);
