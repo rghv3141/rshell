@@ -14,7 +14,8 @@ int rshell_pipe(char **, int);
 int o_redirection(char **, int);
 int in_redirection(char **, int);
 int rshell_background(char **, int);
-void rshell_loop(void) 
+
+void rshell_loop() 
 {
 	
 	char *line;
